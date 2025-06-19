@@ -1,0 +1,34 @@
+services:
+  veramo-verifier:
+    build:
+      context: .
+    container_name: veramo-verifier
+    restart: unless-stopped
+    volumes:
+      - ./conf:/conf:ro
+    ports:
+      - 5000:5000
+    environment:
+      - DEBUG=*
+      - PORT=${PORT}
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SCHEMA=${DB_SCHEMA}
+      - DB_NETWORK_NAME=${DB_NETWORK_NAME}
+      - LISTEN_ADDRESS=${LISTEN_ADDRESS}
+      - BASEURL=${BASEURL}
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.veramo-verifier.rule=Host(`${HOST}`) && PathPrefix(`/verifier`)"
+      - "traefik.http.routers.veramo-verifier.entrypoints=${TRAEFIK_ENTRYPOINT}"
+      - "traefik.http.routers.veramo-verifier.service=veramo-verifier"
+      # - "traefik.http.routers.veramo-verifier.tls.certresolver=letsencrypt"
+      - "traefik.http.services.veramo-verifier.loadbalancer.server.port=${PORT}"
+
+networks:
+  web:
+    external: true

@@ -165,8 +165,8 @@ export class Verifier {
         return didDoc;
     }
 
-    public getPresentation(presentationId:string): PresentationDefinitionV2|null
-    {
+    public getPresentation(presentationId:string): PresentationDefinitionV2|null {
+        debug('Available presentations:', this.presentations.join(', '));
         if (this.presentations.includes(presentationId)) {
             const store = getPresentationStore();
             if (store[presentationId]) {

@@ -53,6 +53,7 @@ export class PresentationSubmission {
   public async verify(): Promise<Message[]> {
     var retval: Message[] = []
     debug('extracting VP', this.presentation)
+    debug('extracting VP string', JSON.stringify(this.presentation))
     // extract the credentials from the presentation.
     for (const jwt of this.presentation.verifiableCredential!) {
       try {

@@ -52,14 +52,16 @@ export class PresentationSubmission {
 
   public async verify(): Promise<Message[]> {
     var retval: Message[] = []
+    debug('extracting VP', this.presentation)
     // extract the credentials from the presentation.
     for (const jwt of this.presentation.verifiableCredential!) {
       try {
-        debug('extracting VC from presentation', jwt)
+        debug('extracted VC from presentation', jwt)
         const decoded = await verifyJWT(jwt as string, {
           resolver: resolver,
           policies: { nbf: false, iat: false, exp: false, aud: false }, // these cause exceptions before decoding
         })
+        debug('error did not occur on verifyJWT')
         if (!decoded.verified) {
           retval.push({ code: 'INVALID_VC', message: 'Could not verify VerifiableCredential in presentation', decoded })
         } else {

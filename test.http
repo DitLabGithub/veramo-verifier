@@ -1,0 +1,21 @@
+### Direct to container on port 5000
+POST http://localhost:5000/verifier/api/create-offer/ybJ2ntPpV7rdZ6bF
+content-type: application/json
+Authorization: Bearer secret admin bearer token
+
+{"x": 5}
+
+### Through Traefik
+POST http://localhost/verifier/api/create-offer/ybJ2ntPpV7rdZ6bF
+content-type: application/json
+Authorization: Bearer secret admin bearer token
+
+{}
+
+
+###lol
+POST https://eduwallet.ditlab.cloud/verifier/api/create-offer/ybJ2ntPpV7rdZ6bF
+content-type: application/json
+Authorization: Bearer secret admin bearer token
+
+{}

@@ -1,10 +1,9 @@
-import { PEX } from '@sphereon/pex'
-import Debug from 'debug'
-import { IPresentation, JWTVerified, PresentationSubmission as PEXPresentationSubmission, PresentationDefinitionV2, verifyJWT } from 'externals'
-import { resolver } from 'agent'
 import { JWTPayload } from '@sphereon/did-auth-siop'
-import { Message } from 'types'
+import { PEX } from '@sphereon/pex'
+import { resolver } from 'agent'
+import { IPresentation, JWTVerified, PresentationSubmission as PEXPresentationSubmission, PresentationDefinitionV2, verifyJWT } from 'externals'
 import moment from 'moment'
+import { Message } from 'types'
 
 // https://identity.foundation/presentation-exchange/spec/v2.0.0/
 // Implementation of presentation exchange validation

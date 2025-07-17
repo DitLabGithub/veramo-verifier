@@ -18,7 +18,7 @@ interface CheckOfferResponse {
 export function checkOffer(verifier: Verifier, checkPath: string) {
   verifier.router!.get(
     checkPath,
-    // passport.authenticate(verifier.name + '-admin', { session: false }),
+    passport.authenticate(verifier.name + '-admin', { session: false }),
     async (request: Request, response: Response<CheckOfferResponse>) => {
       try {
         const rp = verifier.sessions[request.params.state]

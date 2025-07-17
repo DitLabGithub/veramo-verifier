@@ -6,8 +6,6 @@ import { JWTPayload } from '@sphereon/did-auth-siop'
 import { Message } from 'types'
 import moment from 'moment'
 
-const debug = Debug(`verifier:veruft:JWT`)
-
 // https://identity.foundation/presentation-exchange/spec/v2.0.0/
 // Implementation of presentation exchange validation
 
@@ -55,7 +53,6 @@ export class PresentationSubmission {
     // extract the credentials from the presentation.
     for (const jwt of this.presentation.verifiableCredential!) {
       try {
-        debug('extracting VC from presentation', jwt)
         const decoded = await verifyJWT(jwt as string, {
           resolver: resolver,
           policies: { nbf: false, iat: false, exp: false, aud: false }, // these cause exceptions before decoding

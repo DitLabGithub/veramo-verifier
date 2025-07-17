@@ -11,7 +11,7 @@ interface StatusRequest {
 export function checkStatus(verifier: Verifier, checkPath: string) {
   verifier.router!.post(
     checkPath,
-    // passport.authenticate(verifier.name + '-admin', { session: false }),
+    passport.authenticate(verifier.name + '-admin', { session: false }),
     async (request: Request<StatusRequest>, response: Response) => {
       try {
         const result = await verifier.statusList.checkStatus(request.body.statusList, request.body.index)

@@ -1,0 +1,17 @@
+# Host build artifacts must not clobber what `yarn install` builds in the
+# image: `COPY . .` runs after it and would otherwise overwrite the
+# container's Linux modules with the host's.
+node_modules
+dist
+tsconfig.tsbuildinfo
+yarn-error.log
+
+# Secrets: docker-compose passes these in as environment variables, so
+# there is no reason to bake a .env into an image layer.
+.env
+
+# Runtime config is bind-mounted, not baked in.
+conf
+
+# Note: .git is deliberately NOT ignored. getBuildInfo() shells out to
+# `git rev-parse HEAD` and `git describe --tags` to serve /api/version.

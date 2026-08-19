@@ -1,0 +1,69 @@
+import moment from 'moment';
+import { createUniqueId } from 'utils/createUniqueId';
+import { getDbConnection } from 'database/index';
+import { Session } from 'database/entities/index';
+import { LessThan } from 'typeorm';
+
+type NotFoundCallback = (data:any) => any;
+
+export class SessionStateManager {
+    private verifier:string = '';
+
+    public constructor(verifier:string)
+    {
+        this.verifier = verifier;
+    }
+
+    public async clear(id: string) {
+        if (!id) {
+            throw Error('No state id supplied');
+        }
+        
+        const dbConnection = getDbConnection();
+        const repo = dbConnection.getRepository(Session);
+        await repo.delete({uuid: id, verifier: this.verifier});
+    }
+
+    public async get(id:string, callbackIfNotFound?:NotFoundCallback):Promise<Session> {
+        const dbConnection = getDbConnection();
+        const repo = dbConnection.getRepository(Session);
+        let session = await repo.findOneBy({uuid: id, verifier: this.verifier});
+
+        if (!session) {
+            session = this.newState();
+            session.data = {};
+            if (callbackIfNotFound) {
+                session.data = callbackIfNotFound(session.data);
+            }
+        }
+        return session;
+    }
+
+    public async set(state:Session)
+    {
+        const dbConnection = getDbConnection();
+        const repo = dbConnection.getRepository(Session);
+        state.verifier = this.verifier;
+        await repo.save(state);
+    }
+
+    public newState():Session {
+        // create a Session entity object to ensure the decorators and callbacks of TypeORM are called
+        const session:Session = new Session();
+        session.uuid = createUniqueId();
+        session.verifier = this.verifier;
+        session.expirationDate = moment().add(4, 'hours').toDate();
+        session.data = {};
+        return session;
+    }
+
+    public async clearAll()
+    {
+        const dbConnection = getDbConnection();
+        const repo = dbConnection.getRepository(Session);
+        await repo.delete({
+            expirationDate: LessThan(new Date()),
+            verifier: this.verifier
+        });
+    }
+}

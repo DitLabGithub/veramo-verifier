@@ -19,6 +19,13 @@ services:
       - DB_NETWORK_NAME=${DB_NETWORK_NAME}
       - LISTEN_ADDRESS=${LISTEN_ADDRESS}
       - BASEURL=${BASEURL}
+      - DB_PORT=${DB_PORT}
+      - BEARER_TOKEN=${BEARER_TOKEN}
+      - PASSPHRASE=${PASSPHRASE}
+      - OIDFED_KEY=${OIDFED_KEY}
+      - OIDFED_ADMIN_CONTACT=${OIDFED_ADMIN_CONTACT}
+      - OIDFED_AUTH=${OIDFED_AUTH}
+      - OIDFED_TA=${OIDFED_TA}
     networks:
       - web
     labels:

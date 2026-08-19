@@ -17,6 +17,13 @@ DB_PORT=<postgres database port, default 5432>
 PORT=<port number for the verifier agent to listen to, default 5000>
 LISTEN_ADDRESS=<network interface address to bind to, default 0.0.0.0>
 BASEURL=<base Url for the verifier agent, default https://verifier.dev.eduwallet.nl>
+BEARER_TOKEN=<token used for the generic administrative interface>
+PASSPHRASE=<token used for encryption of private keys in the database>
+
+OIDFED_KEY=alias of the identifier key to use for OID Federation purposes
+OIDFED_ADMIN_CONTACT=contact e-mail address for administrative purposes
+OIDFED_AUTH=base url of the directly supervising authority (the authority hint)
+OIDFED_TA=<url of the trust anchor to use>
 ```
 
 ## Installation
@@ -27,23 +34,115 @@ Run `yarn` to install the basic packages:
 
 ## Configuration
 
-Configuration falls into three rough categories:
+Configuration falls into three categories:
 
 - dids
-- verifiable presentations
-- instances
+- presentations
+- verifiers
+
+### DIDs
 
 The dids are configured in the `conf/dids` path and describe how to create the key if it does not yet exist in the database. Each key has an alias that can be referenced in the `instance` specification.
 
-The verifiable presentations are JSON documents describing the request for a specific credential, according to the https://identity.foundation/presentation-exchange/spec/v2.0.0/ specification on Presentation Exchange. Each such presentation is defined by the `id` attribute in the document.
+An example configuration looks like:
 
-The `instances` are a set of endpoints that are callable by front-end-verifiers and wallets. For each `instance` the configuration specifies the `subpath`, the administrator bearer `token`, the `did` used for this `instance` and the Verifiable Presentations that are allowed (by id).
+```json
+{
+    "alias": "did:jwk:secp256r1",
+    "provider": "did:jwk",
+    "type": "Secp256r1"
+}
+```
+
+This defines a `did:jwk` key (`provider`) of type `secp256r1` (aka `p-256`) and supplies an alias that can be used elsewhere.
+
+### Presentations
+
+The verifiable presentations are JSON documents in the `conf/presentations` path, describing the request for a specific credential. The presentations can either contain a PEX request, according to the https://identity.foundation/presentation-exchange/spec/v2.0.0/ specification on Presentation Exchange. Or they contain a `dcql` query.
+
+Each such presentation is defined by the `id` attribute in the document.
+
+An example looks like:
+
+```json
+{
+    "id": "ABC",
+    "name": "ABC Proeftuin Credential",
+    "purpose": "Proeftuin requires the credential content",
+    "input_descriptors": [{
+        "id": "ABC",
+        "name": "ABC Proeftuin Credential",
+        "purpose": "Proeftuin requires the credential content",
+        "schema": [{
+            "uri": "AcademicBaseCredential"
+        }],
+        "constraints": {
+            "fields": [{
+                "path": ["$.credentialSubject.id"]
+            }]
+        }
+    }]
+}
+```
+
+This defines a PEX presentation by using the `input_descriptors` attribute. The presentation is named `ABC` and it requests a credential of type `AcademicBaseCredential` (`input_descriptors.schema.uri`). It requests the `credentialSubject.id` field, but because this is a `jwt_vc_json` type of credential, the wallet will return the complete and fully disclosed credential.
+
+An example using `dcql`:
+
+```json
+{
+    "id": "GC",
+    "name": "Generic Proeftuin Credential",
+    "purpose": "Proeftuin requires the credential content",
+    "query": {
+      "credentials": [{
+        "id": "GC",
+        "format": "dc+sd-jwt",
+        "meta": {
+          "vct_values": [
+            "https://issuer.dev.eduid.nl/vct/eduid"
+          ]
+        },
+        "claims": [{
+          "path": ["given_name"]
+        }]
+      }]
+    }
+}
+```
+
+This example uses the `query` attribute to specify the `dcql` query for the presentation. This query is integrated in the authorization request and not available as a separate presentation. The query requests a credential of format `jwt_vc_json` with an attribute `credentialSubject.id`. 
+
+### Verifiers
+
+The `conf/verifiers` are a set of endpoints that are callable by front-end-verifiers and wallets. For each `instance` the configuration specifies the `subpath`, the administrator bearer `token`, the `did` used for this `instance` and the Verifiable Presentations that are allowed (by id).
+
+Example:
+
+```json
+{
+    "name": "sportscentre",
+    "did": "did:jwk:secp256r1",
+    "adminToken": "secrettoken",
+    "path": "/sportscentre",
+    "presentations": ["GC", "ABC", "PID"],
+    "metadata": {
+        "client_name": "University Sports Centre",
+        "description": "Sports Centre credential verification test",
+        "logo_uri": "logo-url",
+        "location": "Harderwijk"
+    }
+}
+```
+
+This example defines a verifier endpoint for the `sportscentre`. The `adminToken` is used for front-end interaction. The verifier refers to a previously configured `did` using the `did` attribute, which contains an alias. 
 
 ## Interfaces
 
 The front-end-facing verifiers can interact with the Veramo-Verifier using their specific administrative `token`. These are the basic endpoints for this api:
 
 `/:instance/api/create-offer/:presentationid`: request a new authorization request object
+`/:instance/api/create-dcql-offer`: request a new authorization request object with a dcql query (no presentation required)
 `/:instance/api/check-offer/:state`: poll for status updates on a previously created authorization request
 `/:instance/api/check-status`: request a status update on a specific statuslist entry
 
@@ -52,6 +151,21 @@ To support the Credential Verification process, the Veramo-Verifier has some add
 - `/:instance/get-offer/:state`: the endpoint to get the actual Authorization Request Object
 - `/:instance/get-presentation/:presentation`: the endpoint to get a specific presentation definition
 - `/:instance/response/:state`: the endpoint to which the wallet sends its verification response
+
+## OpenID Federation
+
+This verifier version supports OpenID Federation. Please set the relevant environment variables to fill the relevant configurations:
+
+- `OIDFED_KEY`: alias of the identifier key to use for OID Federation purposes
+- `OIDFED_ADMIN_CONTACT`: contact e-mail address for administrative purposes
+- `OIDFED_AUTH`: base url of the directly supervising authority (the authority hint)
+- `OIDFED_TA`: base url of the trust anchor to use for resolving trust chains
+
+The `OIDFED_KEY` must be configured in the `dids` configuration as a regular key. Do not reuse another key for this, OpenID Federation states that these keys must only ever be used for OpenID Federation purposes.
+
+The `OIDFED_ADMIN_CONTACT` is used verbatim in the OpenID Federation metadata hosted at `<base-url>/<tenant>/.well-known/openid-federation`. The `OIDFED_AUTH` url is added there as the `authority_hint` and should match the supervising entity at which this leaf is registered. The tool signs the OpenID Federation metadata with the indicated `OIDFED_KEY`.
+
+The `OIDFED_TA` is used to resolve the trust chain with regard to the issuer of the verified credential(s). The status of this resolving is included in the message output directed at the front end application. A value of `OIDFED_OK` indicates the verification is okay as far as the OpenID Federation trust is concerned.
 
 ## Endpoint definitions
 
@@ -62,6 +176,32 @@ To support the Credential Verification process, the Veramo-Verifier has some add
 This endpoint creates a new state object for a specific presentation. The presentation must be in the set of allowed presentations for this `instance`, for example, `ABC` or `PID`. This endpoint has a `POST` method, although no actual data is posted at the moment. It has content-type `json` and requires the `Authorization: Bearer <token>` header.
 
 The Veramo-Verifier replies with a response object containing the following data:
+
+```json
+{
+    "state": "<random state generated by the Veramo-Verifier>",
+    "requestUri": "<uri, containing state, to be presented as QR code or link>",
+    "checkUri": "<uri to be polled by the front-end-verifier for status updates>"
+}
+```
+
+### Create DCQL Offer
+
+To allow the front-end issuer to easily change the requested credentials and data, there is a `dcql` offer endpoint, unrelated to any previously defined presentations.
+
+`/:instance/api/create-dcql-offer`
+
+This endpoint creates a new state object for the passed `dcql` query. There is currently no restriction on the query itself. This endpoint is a `POST` method with  content-type `json` and requires the `Authorization: Bearer <token>` header.
+
+POST data:
+
+```json
+{
+  "dcql": { <dcql query> }
+}
+```
+
+The Veramo-Verifier replies with a response object containing the following data (same as above):
 
 ```json
 {
@@ -102,22 +242,27 @@ When the last status is returned, the response object is extended with the `resu
     "state": "cb3349e1-8415-4d96-bd40-d03663836ad5",
     "nonce": "8472d4aa-0429-4084-8596-b6adebf7248c",
     "issuer": "<did key of the VP signer (should be the wallet)>",
-    "credentials": [{
-      "holder": "<did key of the VC holder (wallet)>",
-      "issuerKey": "<did key of the VC issuer>",
-      "issuer": "<VC issuer id, which currently equals the issuerKey>",
-      "claims": {
-        [x:string]: string|number
-      },
-      "statusLists": [{
-        "id": "<status list entry id>",
-        "type": "<type of this status list>",
-        "statusPurpose": "<purpose, one of revocation or suspension>",
-        "statusListIndex": "<unique numeric index>",
-        "statusListCredential": "<status list credential url>"
-      }],
-      "payload": "<JWT payload content>"
-    }],
+    "credentials": {
+      "<credential-type-identifier>": [{
+        "holder": "<did key of the VC holder (wallet)>",
+        "issuerKey": "<did key of the VC issuer>",
+        "issuer": "<VC issuer id, which currently equals the issuerKey>",
+        "claims": {
+          [x:string]: string|number
+        },
+        "metadata": {
+          "statusLists": [{
+            "id": "<status list entry id>",
+            "type": "<type of this status list>",
+            "statusPurpose": "<purpose, one of revocation or suspension>",
+            "statusListIndex": "<unique numeric index>",
+            "statusListCredential": "<status list credential url>"
+          }],
+          "evidence": [{<evidence data>}]
+        },
+        "payload": "<JWT payload content>"
+      }]
+    }
     "messages": [{
       "code": "<message code>",
       "message": "<message description>",
@@ -134,16 +279,21 @@ The `claims` attribute contains the actual claims as present in the Verifiable C
 The `messages` list contains validation and verification messages gathered during parsing of the VerifiablePresentation. The following codes can be returned:
 
 - `INVALID_STATE`: the VP response lists a state that does not match the expected state. No further data is processed
-- `INVALID_JWT`: the VP JWT token could not be decoded correctly. No further data is processed
-- `UNVERIFIED_JWT`: the VP JWT token could not be verified, probably due to a missing or unverifiable signature
+- `INVALID_JWT`: the VP-JWT, SD-JWT or KB-JWT token could not be decoded correctly. No further data is processed
+- `JWT_UNVERIFIED`: the VP-JWT or KB-JWT token could not be verified, probably due to a missing or unverifiable signature
+- `JWT_VERIFIED`: the VP-JWT or KB-JWT was successfully verified
 - `NO_CREDENTIALS_FOUND`: the VP JWT did not contain the expected credentials list
+- `UNSUPPORTED_VC`: the VC format type is not supported
 - `INVALID_NONCE`: the VP JWT payload did not encode the nonce value that was expected
 - `INVALID_PRESENTATION`: an error occurred while decoding and verifying the constitution of the verifiable presentation
 - `INVALID_VC`: an error occurred during decoding of the VC JWT
-- `VC_NBF_ERROR`: the VC not-before value lies in the future
-- `VC_IAT_ERROR`: the VC issued-at value lies in the future
-- `VC_EXP_ERROR`: the VC expiry value lies in the past
-- `VC_AUD_ERROR`: the VC aud value does not match the issuer did
+- `INVALID_SDJWT`: an error occurred during decoding or validation of the SD-JWT
+- `MISSING_KB`: the key-binding jwt was not found
+- `INVALID_KB`: an error occurred during decoding or validation of the key-binding JWT
+- `NBF_ERROR`: the VC not-before value lies in the future
+- `IAT_ERROR`: the VC issued-at value lies in the future
+- `EXP_ERROR`: the VC expiry value lies in the past
+- `AUD_ERROR`: the VC aud value does not match the issuer did
 - `NO_STATUS_LIST`: no status list was assigned to the credential
 - `STATUSLIST_UNREACHABLE`: the status list assigned to the credential could not be contacted
 - `STATUSLIST_INVALID`: the status list did not properly encode the bit values
@@ -190,6 +340,7 @@ The response object looks similar to the following (JWT payload)
 ```json
 {
   "iat": 1725272520,
+  "nbf": 1725272520,
   "exp": 1725272640,
   "response_type": "vp_token",
   "scope": "openid",
@@ -197,11 +348,10 @@ The response object looks similar to the following (JWT payload)
   "response_uri": "<uri to send the wallet response to (see below)>",
   "response_mode": "direct_post",
   "nonce": "8472d4aa-0429-4084-8596-b6adebf7248c",
+  "wallet_nonce": "optional nonce value of the wallet to ensure no replays",
+  "aud": "<client-id for SIOPv2>",
   "state": "cb3349e1-8415-4d96-bd40-d03663836ad5",
-  "presentation_definition_uri": "<uri on the Veramo Agent to get the presentation request>",
-  "client_metadata": { ... }
-  },
-  "nbf": 1725272520,
+  "dcql_query": "<dcql query object>",
   "jti": "9f498f77-a3f3-4991-88aa-917c9fd7c06c",
   "iss": "<did key of the verifier agent for this instance>",
   "sub": "<did key of the verifier agent for this instance>"
@@ -239,6 +389,8 @@ This endpoint is stateless and requests the presentation definition as defined b
 
 In this example, the purpose of the entire presentation is the same as the purpose for requesting the one credential. The `given_name` is requested, which is always present, so the wallet can select all AcademicBaseCredential credentials it has available and allow the user to pick one.
 
+This type of presentation is only used in the outdated PEX type presentations.
+
 ### Receive Response
 
 `/:instance/response/:state`
@@ -250,24 +402,21 @@ The response object is a html form encoded set of key-values:
 ```
 expires_in: '300'
 state: '6c9c611d-ee10-4c9d-9af5-5992ad191019'
-presentation_submission: '{
-  "id":"grAU7C0oHg2oinn1IAcw6",
-  "definition_id":"ABC",
-  "descriptor_map":[{
-    "id":"ABC",
-    "format":"jwt_vp",
-    "path":"$",
-    "path_nested":{
-      "id":"ABC",
-      "format":"jwt_vc",
-      "path":"$.vp.verifiableCredential[0]"
-    }
-  }]
-}'
-vp_token: <JWT>
+vp_token: '["... SD-JWT token..."]'
 ```
 
-The `presentation_submission` indicates where to find the requested fields in the set of Verifiable Credentials transmitted. It is a response to the `constraints` field in the presentation definition above.
-
 The actual Verifiable Credentials are stored in the `vp_token` attribute. The Veramo-Verifier decodes and verifies the JWT and collects all the claims for the front-end-verifier.
+
+# Changelog / Release Notes
+
+| Version | Commit  | Date       | Comment             |
+| ------- | ------- | ---------- | ------------------- |
+|         | dbe04ad | 2026-04-01 | Implementation of basic OpenID Federation |
+|         | 0553fef | 2026-01-27 | Export option of configuration using Management API |
+|         | faa2368 | 2026-01-15 | Implementation of sd-jwt verifications |
+|         | 7d3481b | 2025-12-09 | `dcql` api offer, allowing direct requests with front-end defined dcql queries, instead of using static presentations |
+|         | 7005e6c | 2025-11-25 | Database sessions, which implies a database migration |
+|         | 086ea5d | 2025-11-25 | Added `/api/version` endpoint that gives package version, node version, tag and commit information |
+|         | f30d00f | 2025-11-19 | Clearing tables (verifiers, presentations, but not identifiers and keys) if `BEARER_TOKEN` is empty, enforcing file based configuration on restart of the application |
+|         | cc7ed33 | 2025-11-12 | Implementation of encoded private keys. When running this version, make sure the PASSPHRASE environment variable is set. If it is not set, the keys are not encoded with the migration (so remain unchanged). This will work, but encoding manually afterwards is a pain. The easiest way to fix this is to remove the EncKey migration from the `migrations` table, which will retry to encode all private keys. |
 

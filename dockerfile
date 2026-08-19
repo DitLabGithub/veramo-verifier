@@ -9,4 +9,4 @@ RUN yarn install
 
 COPY . .
 
-CMD ["sh", "-c", "DEBUG=* yarn dev"]
+CMD ["sh", "-c", "DEBUG=* yarn start"]

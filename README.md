@@ -296,11 +296,19 @@ The `messages` list contains validation and verification messages gathered durin
 - `AUD_ERROR`: the VC aud value does not match the issuer did
 - `NO_STATUS_LIST`: no status list was assigned to the credential
 - `STATUSLIST_UNREACHABLE`: the status list assigned to the credential could not be contacted
-- `STATUSLIST_INVALID`: the status list did not properly encode the bit values
+- `STATUS_LIST_INVALID`: the status list did not properly encode the bit values
+- `STATUS_LIST_REVOKED`: the status list indicates the credential was revoked
+- `STATUS_LIST_SUSPENDED`: the status list indicates the credential was suspended
+- `STATUS_LIST_MESSAGE`: the status list provides a specific message for the credential
+- `STATUS_LIST_VALID`: the credential has status list information and the current state does not indicate revocation
 - `CREDENTIAL_REVOKED`: the credential was indicated as revoked (bit set on a status list of type revocation)
 - `CREDENTIAL_SUSPENDED`: the credential was indicated as suspended (bit set on a status list of type suspension)
 - `CREDENTIAL_STATUS_SET`: the credential has its status bit set, but the status list type was not recognised
 - `CREDENTIAL_STATUS_OK`: the credential status could be retrieved and the status bit was not set
+- `OIDFED_ERROR`: there was an issue with evaluating the OpenID Federation claims, trust anchor or metadata
+- `OIDFED_OK`: the credential has OpenID Federation claims and all checks were evaluated successfully
+
+Front-end applications should check the resulting message lists and look for at least `JWT_VERIFIED` (indicates the credential is a correct JWT), `STATUS_LIST_VALID` for credentials that have status list information (or should have) and `OIDFED_OK` for credentials that are issued and verified in the context of an OpenID Federation. Other messages may indicate invalid credentials, untrusted issuers or revoked/suspended credentials and additional business logic may need to be applied.
 
 ### Check Status
 
@@ -411,10 +419,15 @@ The actual Verifiable Credentials are stored in the `vp_token` attribute. The Ve
 
 | Version | Commit  | Date       | Comment             |
 | ------- | ------- | ---------- | ------------------- |
-|         | dbe04ad | 2026-04-01 | Implementation of basic OpenID Federation |
-|         | 0553fef | 2026-01-27 | Export option of configuration using Management API |
-|         | faa2368 | 2026-01-15 | Implementation of sd-jwt verifications |
-|         | 7d3481b | 2025-12-09 | `dcql` api offer, allowing direct requests with front-end defined dcql queries, instead of using static presentations |
+|  v1.6.4 | 369efd9 | 2026-06-24 | Asynchronous response processing to allow the wallet to proceed while validating |
+|         | 5bbf81e | 2026-06-05 | Support for vc+sd-jwt and EnveloppedCredentials following DIIPv5 |
+|  v1.6.3 | f735903 | 2026-06-03 | Support for vc+jwt VCDM2 credentials |
+|  v1.6.2 | 0a2971b | 2026-05-01 | OIDFed bugfix |
+|  v1.6.1 | fad5a13 | 2026-04-13 | Removed Archiver from node modules |
+|  v1.6.0 | dbe04ad | 2026-04-01 | Implementation of basic OpenID Federation |
+|  v1.5.0 | 0553fef | 2026-01-27 | Export option of configuration using Management API |
+|  v1.4.0 | faa2368 | 2026-01-15 | Implementation of sd-jwt verifications |
+|  v1.3.0 | 7d3481b | 2025-12-09 | `dcql` api offer, allowing direct requests with front-end defined dcql queries, instead of using static presentations |
 |         | 7005e6c | 2025-11-25 | Database sessions, which implies a database migration |
 |         | 086ea5d | 2025-11-25 | Added `/api/version` endpoint that gives package version, node version, tag and commit information |
 |         | f30d00f | 2025-11-19 | Clearing tables (verifiers, presentations, but not identifiers and keys) if `BEARER_TOKEN` is empty, enforcing file based configuration on restart of the application |

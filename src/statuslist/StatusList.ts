@@ -1,3 +1,6 @@
+import Debug from 'debug';
+const debug = Debug("verifier:statlists");
+
 import moment from 'moment';
 import {Bitstring} from '@digitalcredentials/bitstring';
 import { JWT } from '@muisit/simplejwt';
@@ -92,6 +95,8 @@ export class StatusList
                 type = 'ietf';
                 break;
         }
+
+        debug("verifying status list of type ", type, ' at ', url, ' and index ', index);
         // this allows us to generically re-check a statuslist by providing type, url, index and size
         if (!url && statusListEntry.url) {
             url = statusListEntry.url;
@@ -119,12 +124,14 @@ export class StatusList
 
     private async determineMessage(list:StatusListEntry, index:number, size:number, messages:StatusMessage[])
     {
+        debug("determining message of index ", index);
         const encoded = list!.data;
         const dataList = new Bitstring({buffer:await Bitstring.decodeBits({encoded})});
         const value = this.getStateValue(dataList, index, size);
         let message:StatusMessage|null = null;
         for (const msg of messages) {
             if (parseInt(msg.status) === value) {
+                debug("found an explicit message ", msg);
                 message = msg;
                 break;
             }
@@ -142,27 +149,34 @@ export class StatusList
         };
 
         if (message.message == 'revoked') {
+            debug("message says revoked");
             retval.code = 'CREDENTIAL_REVOKED';
         }
         else if (message.message == 'suspended') {
+            debug("message says suspended");
             retval.code = 'CREDENTIAL_SUSPENDED';
         }
         else if (value > 0) {
+            debug("value is larger than 0");
             retval.code = 'CREDENTIAL_STATUS_SET';
         }
         else {
+            debug("value is zero and message does not say revoked or suspended");
             retval.message = 'Credential is not set in statuslist with purpose ' + list.purpose;
         }
+        debug("status list result is ", retval);
         return retval;
     }
 
     private getStateValue(bitString:Bitstring, index:number, bitSize:number)
     {
+        debug("getting state value of bit ", index, " with bit size ", bitSize);
         let retval:number = 0;
         for(let i = 0;i < bitSize; i++) {
             const bitval = bitString.get((index * bitSize) + i);
             retval = (retval << 1) | (bitval ? 1 : 0);
         }
+        debug("state value is ", retval);
         return retval;
     }
 
@@ -193,6 +207,7 @@ export class StatusList
     private async getStatusList(statusList:string, type:string, purpose:string, size:number): Promise<CachedList>
     {
         if (!this.statusListIsAvailable(statusList)) {
+            debug("retrieving status list from live service");
             await this.retrieveList(statusList, type, purpose, size);
         }
         return this.cachedLists[statusList];
@@ -207,6 +222,7 @@ export class StatusList
         if (this.cachedLists[statusList].expires < now) {
             return false;
         }
+        debug("statuslist found in cache");
         return true;
     }
 
@@ -285,6 +301,7 @@ export class StatusList
                 throw new Error(`STATUSLIST_INVALID:Unsupported internal type ${type}`);
         }
 
+        debug('adding decoded statuslist of type ', type, ' to cache');
         this.cachedLists[statusList] = entry;
     }
 

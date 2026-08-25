@@ -1,3 +1,6 @@
+import Debug from 'debug';
+const debug = Debug("verifier:statlists");
+
 import { Message } from "types";
 import { ExtractedCredential } from "./DCQLSubmission";
 import { RP } from "./RP";
@@ -7,6 +10,7 @@ export async function validateStatusLists(rp:RP, credential:ExtractedCredential)
     const messages:Message[] = [];
     if (credential.metadata?.statusLists && credential.metadata?.statusLists.length) {
         for (const statusList of (credential.metadata?.statusLists ?? [])) {
+            debug("validating status list information", statusList);
             try {
                 const { code, value, message } = await rp.verifier.statusList.check(statusList);
                 switch (code ?? 'UNRESOLVED') {
